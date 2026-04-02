@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Student Dashboard - SmartAttend</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    .donut-ring {
+      transform: rotate(-90deg);
+      transform-origin: 50% 50%;
+    }
+    .subject-bar-fill {
+      transition: width 0.8s ease;
+    }
+    .streak-dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      display: inline-block; margin: 2px;
+    }
+    .profile-avatar {
+      width: 72px; height: 72px; border-radius: 50%;
+      object-fit: cover; border: 3px solid var(--primary);
+    }
+    .profile-avatar-placeholder {
+      width: 72px; height: 72px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2rem; border: 3px solid var(--primary);
+    }
+    .timeline-item {
+      display: flex; gap: 1rem; padding: 0.8rem 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .timeline-item:last-child { border-bottom: none; }
+    .timeline-dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      background: var(--success); margin-top: 5px; flex-shrink: 0;
+    }
+    .pct-ring { position: relative; display: inline-block; }
+    .pct-label {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+    }
+  </style>
+</head>
+<body>
+
+<!-- LOGIN SCREEN -->
+<div id="login-section" class="login-page">
+  <div class="login-card">
+    <div class="login-icon">🎓</div>
+    <div class="login-title">Student Login</div>
+    <div class="login-sub">Enter your Roll Number and password</div>
+    <div id="login-err" class="alert alert-danger" style="display:none"></div>
+    <div class="form-group">
+      <label class="form-label">Roll Number</label>
+      <input type="text" class="form-input" id="login-roll" placeholder="e.g. CS001">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Password</label>
+      <input type="password" class="form-input" id="login-pass" placeholder="Default: student123">
+    </div>
+    <button class="btn btn-primary btn-full" style="margin-top:0.5rem" onclick="doLogin()">Login →</button>
+    <div style="text-align:center;margin-top:1rem;font-size:0.8rem;color:var(--text-muted)">
+      Default password: <strong>student123</strong><br>
+      (Admin can change it when adding you)
+    </div>
+    <div style="text-align:center;margin-top:1.5rem;padding-top:1rem;border-top:1px solid var(--border)">
+      <a href="/" style="color:var(--text-muted);font-size:0.85rem;text-decoration:none">← Back to Home</a>
+    </div>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dashboard-section" style="display:none">
+  <nav class="navbar">
+    <div class="nav-brand">
+      <span class="nav-icon">🎓</span>
+      <span>SmartAttend</span>
+    </div>
+    <div class="nav-links">
+      <a href="/" class="nav-link">Home</a>
+      <a href="/student.html" class="nav-link active">My Dashboard</a>
+      <a href="/mark.html" class="nav-link">Mark Attendance</a>
+      <button class="btn btn-secondary btn-sm" onclick="logout()">Logout</button>
+    </div>
+  </nav>
+
+  <div class="page-container" style="max-width:960px">
+
+    <!-- PROFILE HEADER -->
+    <div class="card" style="display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap;margin-bottom:1.5rem">
+      <div id="profile-avatar-wrap">
+        <div class="profile-avatar-placeholder">👤</div>
+      </div>
+      <div style="flex:1">
+        <div style="font-size:1.5rem;font-weight:700" id="dash-name">—</div>
+        <div style="color:var(--text-muted);font-size:0.9rem;margin-top:0.2rem">
+          Roll No: <strong id="dash-roll">—</strong> &nbsp;|&nbsp; Dept: <strong id="dash-dept">—</strong>
+        </div>
+        <div style="margin-top:0.8rem;display:flex;gap:0.6rem;flex-wrap:wrap">
+          <a href="/mark.html" class="btn btn-primary btn-sm">📋 Mark Attendance</a>
+          <span id="session-pill" class="badge" style="font-size:0.8rem;align-self:center"></span>
+        </div>
+      </div>
+      <div id="overall-ring" style="text-align:center"></div>
+    </div>
+
+    <!-- STAT CARDS -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:1.5rem">
+      <div class="card" style="text-align:center;padding:1.5rem">
+        <div style="font-size:2rem;font-weight:800;color:var(--primary-light)" id="stat-present">0</div>
+        <div style="color:var(--text-muted);font-size:0.82rem;margin-top:0.2rem">Sessions Present</div>
+      </div>
+      <div class="card" style="text-align:center;padding:1.5rem">
+        <div style="font-size:2rem;font-weight:800;color:var(--secondary)" id="stat-total">0</div>
+        <div style="color:var(--text-muted);font-size:0.82rem;margin-top:0.2rem">Total Sessions</div>
+      </div>
+      <div class="card" style="text-align:center;padding:1.5rem">
+        <div style="font-size:2rem;font-weight:800" id="stat-pct" class="">0%</div>
+        <div style="color:var(--text-muted);font-size:0.82rem;margin-top:0.2rem">Attendance %</div>
+      </div>
+    </div>
+
+    <!-- ATTENDANCE ALERT -->
+    <div id="attendance-alert" style="display:none;margin-bottom:1.5rem"></div>
+
+    <!-- TABS -->
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('history')">📅 Attendance History</button>
+      <button class="tab" onclick="switchTab('subjects')">📚 Subject-wise</button>
+    </div>
+
+    <!-- HISTORY TAB -->
+    <div class="tab-content active" id="tab-history">
+      <div class="card">
+        <div class="card-title">📅 Recent Attendance</div>
+        <div id="history-list">
+          <div style="text-align:center;padding:2rem;color:var(--text-muted)">Loading...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SUBJECT TAB -->
+    <div class="tab-content" id="tab-subjects">
+      <div class="card">
+        <div class="card-title">📚 Subject-wise Attendance</div>
+        <div id="subject-list">
+          <div style="text-align:center;padding:2rem;color:var(--text-muted)">Loading...</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  let currentStudent = null;
+
+  async function doLogin() {
+    const roll_no = document.getElementById('login-roll').value.trim();
+    const password = document.getElementById('login-pass').value.trim();
+    if (!roll_no || !password) {
+      showErr('Please enter Roll Number and password');
+      return;
+    }
+    try {
+      const res = await fetch('/api/student/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ roll_no, password })
+      });
+      const data = await res.json();
+      if (data.success) {
+        currentStudent = data.student;
+        sessionStorage.setItem('student', JSON.stringify(currentStudent));
+        showDashboard();
+      } else {
+        showErr(data.message);
+      }
+    } catch(e) {
+      showErr('Server error. Is the server running?');
+    }
+  }
+
+  function showErr(msg) {
+    const el = document.getElementById('login-err');
+    el.style.display = 'flex';
+    el.textContent = '❌ ' + msg;
+  }
+
+  document.getElementById('login-pass').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
+
+  function logout() {
+    currentStudent = null;
+    sessionStorage.removeItem('student');
+    document.getElementById('dashboard-section').style.display = 'none';
+    document.getElementById('login-section').style.display = 'flex';
+    document.getElementById('login-roll').value = '';
+    document.getElementById('login-pass').value = '';
+  }
+
+  function switchTab(name) {
+    document.querySelectorAll('.tab').forEach((t,i) => {
+      t.classList.toggle('active', ['history','subjects'][i] === name);
+    });
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+    document.getElementById('tab-'+name).classList.add('active');
+  }
+
+  async function showDashboard() {
+    document.getElementById('login-section').style.display = 'none';
+    document.getElementById('dashboard-section').style.display = 'block';
+
+    // Profile
+    document.getElementById('dash-name').textContent = currentStudent.name;
+    document.getElementById('dash-roll').textContent = currentStudent.roll_no;
+    document.getElementById('dash-dept').textContent = currentStudent.department || 'N/A';
+
+    const avatarWrap = document.getElementById('profile-avatar-wrap');
+    if (currentStudent.photo_data) {
+      avatarWrap.innerHTML = `<img class="profile-avatar" src="${currentStudent.photo_data}" onerror="this.outerHTML='<div class=\\'profile-avatar-placeholder\\'>👤</div>'">`;
+    }
+
+    // Check active session
+    try {
+      const sessRes = await fetch('/api/sessions/active');
+      const sess = await sessRes.json();
+      const pill = document.getElementById('session-pill');
+      if (sess) {
+        pill.className = 'badge badge-success';
+        pill.textContent = `🟢 ${sess.subject} — Session Active`;
+      } else {
+        pill.className = 'badge badge-danger';
+        pill.textContent = '⭕ No Active Session';
+      }
+    } catch(e) {}
+
+    // Load stats + records
+    await Promise.all([loadStats(), loadHistory()]);
+  }
+
+  async function loadStats() {
+    try {
+      const res = await fetch(`/api/student/${currentStudent.id}/stats`);
+      const data = await res.json();
+
+      document.getElementById('stat-present').textContent = data.present;
+      document.getElementById('stat-total').textContent = data.total;
+
+      const pctEl = document.getElementById('stat-pct');
+      pctEl.textContent = data.percentage + '%';
+      pctEl.style.color = data.percentage >= 75 ? 'var(--success)' : data.percentage >= 60 ? 'var(--warning)' : 'var(--danger)';
+
+      // Attendance alert
+      const alertEl = document.getElementById('attendance-alert');
+      if (data.total > 0) {
+        alertEl.style.display = 'block';
+        if (data.percentage < 75) {
+          alertEl.innerHTML = `<div class="alert alert-danger">⚠️ Your attendance is <strong>${data.percentage}%</strong> — below the 75% requirement. You need to attend more classes!</div>`;
+        } else if (data.percentage < 85) {
+          alertEl.innerHTML = `<div class="alert alert-warning">📊 Attendance: <strong>${data.percentage}%</strong> — above 75% but try to maintain it above 85%.</div>`;
+        } else {
+          alertEl.innerHTML = `<div class="alert alert-success">✅ Great! Your attendance is <strong>${data.percentage}%</strong> — keep it up!</div>`;
+        }
+      }
+
+      // Donut ring
+      const pct = data.percentage;
+      const r = 46; const circ = 2 * Math.PI * r;
+      const filled = circ * (pct / 100);
+      const color = pct >= 75 ? '#10b981' : pct >= 60 ? '#f59e0b' : '#ef4444';
+      document.getElementById('overall-ring').innerHTML = `
+        <div class="pct-ring">
+          <svg width="120" height="120" viewBox="0 0 120 120">
+            <circle cx="60" cy="60" r="${r}" fill="none" stroke="var(--card2)" stroke-width="10"/>
+            <circle cx="60" cy="60" r="${r}" fill="none" stroke="${color}" stroke-width="10"
+              stroke-dasharray="${filled} ${circ}" stroke-linecap="round" class="donut-ring"/>
+          </svg>
+          <div class="pct-label">
+            <div style="font-size:1.3rem;font-weight:800;color:${color}">${pct}%</div>
+            <div style="font-size:0.65rem;color:var(--text-muted)">Attendance</div>
+          </div>
+        </div>
+      `;
+
+      // Subject bars
+      renderSubjectBars(data.bySubject);
+    } catch(e) { console.error(e); }
+  }
+
+  function renderSubjectBars(subjects) {
+    const container = document.getElementById('subject-list');
+    if (!subjects.length) {
+      container.innerHTML = '<div class="empty-state"><div class="e-icon">📚</div><p>No subject data yet.</p></div>';
+      return;
+    }
+    container.innerHTML = subjects.map(s => {
+      const pct = s.total_count > 0 ? Math.round((s.present_count / s.total_count) * 100) : 0;
+      const color = pct >= 75 ? 'var(--success)' : pct >= 60 ? 'var(--warning)' : 'var(--danger)';
+      return `
+        <div style="margin-bottom:1.2rem">
+          <div style="display:flex;justify-content:space-between;margin-bottom:0.4rem">
+            <span style="font-weight:500;font-size:0.9rem">${s.subject}</span>
+            <span style="font-size:0.85rem;color:${color};font-weight:600">${pct}% (${s.present_count}/${s.total_count})</span>
+          </div>
+          <div style="background:var(--card2);border-radius:100px;height:8px;overflow:hidden">
+            <div class="subject-bar-fill" style="height:100%;width:${pct}%;background:${color};border-radius:100px"></div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  async function loadHistory() {
+    try {
+      const res = await fetch(`/api/student/${currentStudent.id}/attendance`);
+      const records = await res.json();
+      const container = document.getElementById('history-list');
+      if (!records.length) {
+        container.innerHTML = '<div class="empty-state"><div class="e-icon">📅</div><p>No attendance records yet.<br><a href="/mark.html" style="color:var(--primary-light)">Mark your first attendance →</a></p></div>';
+        return;
+      }
+      container.innerHTML = records.map(r => {
+        const statusBadge = s => {
+          if(s==='confirmed') return '<span class="badge badge-success" style="font-size:0.72rem">✅ Confirmed</span>';
+          if(s==='monitoring') return '<span class="badge" style="background:rgba(6,182,212,0.2);color:#67e8f9;font-size:0.72rem">📡 Monitoring</span>';
+          if(s==='absent_left') return '<span class="badge badge-danger" style="font-size:0.72rem">❌ Left Zone</span>';
+          if(s==='absent_gps_off') return '<span class="badge badge-danger" style="font-size:0.72rem">❌ GPS Off</span>';
+          return '<span class="badge badge-warning" style="font-size:0.72rem">⏳ Pending</span>';
+        };
+        return `
+        <div class="timeline-item">
+          <div class="timeline-dot" style="background:${r.status==='confirmed'?'var(--success)':r.status.startsWith('absent')?'var(--danger)':'var(--secondary)'}"></div>
+          <div style="flex:1">
+            <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:0.5rem">
+              <div>
+                <strong style="font-size:0.9rem">${r.subject}</strong>
+                ${r.teacher ? `<span style="color:var(--text-muted);font-size:0.8rem"> — ${r.teacher}</span>` : ''}
+              </div>
+              <div style="display:flex;gap:0.4rem;align-items:center;flex-wrap:wrap">
+                ${statusBadge(r.status)}
+                <span class="badge ${r.face_matched ? 'badge-success' : 'badge-warning'}" style="font-size:0.72rem">
+                  ${r.face_matched ? '📸 Face ✓' : '📸 No face'}
+                </span>
+              </div>
+            </div>
+            <div style="font-size:0.78rem;color:var(--text-muted);margin-top:0.3rem">
+              📅 ${r.date} &nbsp;|&nbsp; 🕐 ${new Date(r.marked_at).toLocaleTimeString()}
+              &nbsp;|&nbsp; 📶 ${r.ping_count||0} GPS pings
+            </div>
+          </div>
+        </div>`
+      }).join('');
+    } catch(e) { console.error(e); }
+  }
+
+  // Auto-login if session storage has student
+  window.addEventListener('load', () => {
+    const saved = sessionStorage.getItem('student');
+    if (saved) {
+      currentStudent = JSON.parse(saved);
+      showDashboard();
+    }
+  });
+</script>
+</body>
+</html>

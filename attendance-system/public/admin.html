@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Panel - SmartAttend</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-section" class="login-page">
+  <div class="login-card">
+    <div class="login-icon">🔒</div>
+    <div class="login-title">Admin Login</div>
+    <div class="login-sub">Enter credentials to access admin panel</div>
+    <div id="login-err" class="alert alert-danger" style="display:none"></div>
+    <div class="form-group">
+      <label class="form-label">Username</label>
+      <input type="text" class="form-input" id="login-user" value="admin" placeholder="Username">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Password</label>
+      <input type="password" class="form-input" id="login-pass" value="admin123" placeholder="Password">
+    </div>
+    <button class="btn btn-primary btn-full" style="margin-top:0.5rem" onclick="doLogin()">Login →</button>
+    <div style="text-align:center;margin-top:1rem;font-size:0.8rem;color:var(--text-muted)">
+      Default: admin / admin123
+    </div>
+  </div>
+</div>
+
+<!-- ADMIN DASHBOARD -->
+<div id="admin-section" style="display:none">
+  <nav class="navbar">
+    <div class="nav-brand">
+      <span class="nav-icon">🎓</span>
+      <span>SmartAttend Admin</span>
+    </div>
+    <div class="nav-links">
+      <a href="/" class="nav-link">Home</a>
+      <a href="/mark.html" class="nav-link">Mark Attendance</a>
+      <span class="nav-link" style="color:var(--success);cursor:default">👨‍💼 Admin</span>
+      <button class="btn btn-secondary btn-sm" onclick="logout()">Logout</button>
+    </div>
+  </nav>
+
+  <div class="page-container" style="max-width:1000px">
+    <div class="page-header">
+      <h1>🎛️ Admin Dashboard</h1>
+      <p>Manage students, sessions, and attendance records</p>
+    </div>
+
+    <!-- STATS -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:2rem">
+      <div class="card" style="text-align:center;padding:1.5rem">
+        <div style="font-size:2.5rem;font-weight:800;color:var(--primary-light)" id="d-students">0</div>
+        <div style="color:var(--text-muted);font-size:0.85rem">Students</div>
+      </div>
+      <div class="card" style="text-align:center;padding:1.5rem">
+        <div style="font-size:2.5rem;font-weight:800;color:var(--success)" id="d-sessions">0</div>
+        <div style="color:var(--text-muted);font-size:0.85rem">Sessions</div>
+      </div>
+      <div class="card" style="text-align:center;padding:1.5rem">
+        <div style="font-size:2.5rem;font-weight:800;color:var(--secondary)" id="d-records">0</div>
+        <div style="color:var(--text-muted);font-size:0.85rem">Attendance Records</div>
+      </div>
+    </div>
+
+    <!-- TABS -->
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('sessions')">📅 Sessions</button>
+      <button class="tab" onclick="switchTab('students')">👥 Students</button>
+      <button class="tab" onclick="switchTab('live')">📡 Live Monitor</button>
+      <button class="tab" onclick="switchTab('records')">📊 Records</button>
+    </div>
+
+    <!-- SESSIONS TAB -->
+    <div class="tab-content active" id="tab-sessions">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:1rem">
+        <h2 style="font-size:1.1rem;font-weight:600">📅 Manage Sessions</h2>
+        <button class="btn btn-primary" onclick="openSessionModal()">+ New Session</button>
+      </div>
+
+      <div id="active-session-info" class="session-active-banner" style="display:none">
+        <div class="session-info-text">
+          <h3 id="act-subj">Session Active</h3>
+          <p id="act-meta"></p>
+        </div>
+        <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
+          <button class="btn btn-danger btn-sm" id="close-session-btn" onclick="closeSession()">🔴 Close Session</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div id="sessions-list">
+          <div style="text-align:center;padding:2rem;color:var(--text-muted)">Loading...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STUDENTS TAB -->
+    <div class="tab-content" id="tab-students">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:1rem">
+        <h2 style="font-size:1.1rem;font-weight:600">👥 Registered Students</h2>
+        <button class="btn btn-primary" onclick="openStudentModal()">+ Add Student</button>
+      </div>
+      <div class="card">
+        <div id="students-list">
+          <div style="text-align:center;padding:2rem;color:var(--text-muted)">Loading...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LIVE MONITOR TAB -->
+    <div class="tab-content" id="tab-live">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:0.5rem">
+        <h2 style="font-size:1.1rem;font-weight:600">📡 Live GPS Monitor</h2>
+        <button class="btn btn-secondary btn-sm" onclick="loadLive()">🔄 Refresh</button>
+      </div>
+      <div id="live-session-info" class="alert alert-info" style="margin-bottom:1rem;display:none"></div>
+      <div class="card">
+        <div id="live-board">
+          <div style="text-align:center;padding:2rem;color:var(--text-muted)">
+            Select this tab to load live tracking data
+          </div>
+        </div>
+      </div>
+      <div style="font-size:0.78rem;color:var(--text-muted);margin-top:0.5rem">
+        Auto-refreshes every 30 seconds while tab is open.
+      </div>
+    </div>
+
+    <!-- RECORDS TAB -->
+    <div class="tab-content" id="tab-records">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:1rem">
+        <h2 style="font-size:1.1rem;font-weight:600">📊 Attendance Records</h2>
+        <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
+          <select class="form-select" id="session-filter" onchange="loadRecords()" style="width:auto">
+            <option value="">All Sessions</option>
+          </select>
+          <button class="btn btn-success btn-sm" onclick="exportCSV()">⬇️ Export CSV</button>
+          <button class="btn btn-secondary btn-sm" onclick="loadRecords()">🔄 Refresh</button>
+        </div>
+      </div>
+      <div class="card">
+        <div id="records-list">
+          <div style="text-align:center;padding:2rem;color:var(--text-muted)">Loading...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- NEW SESSION MODAL -->
+<div class="modal-overlay" id="session-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">📅 Create New Session</div>
+      <button class="modal-close" onclick="closeModal('session-modal')">✕</button>
+    </div>
+    <div id="session-modal-msg"></div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label class="form-label">Subject *</label>
+        <input type="text" class="form-input" id="s-subject" placeholder="e.g. Data Structures">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Teacher Name</label>
+        <input type="text" class="form-input" id="s-teacher" placeholder="e.g. Dr. Smith">
+      </div>
+    </div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label class="form-label">Date *</label>
+        <input type="date" class="form-input" id="s-date">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Geo-fence Radius (m) *</label>
+        <input type="number" class="form-input" id="s-radius" value="100" min="10" max="5000">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">⏱ Monitor Duration (minutes) <span style="color:var(--text-muted);font-weight:400">— students marked absent if they leave before this</span></label>
+      <input type="number" class="form-input" id="s-monitor" value="40" min="5" max="180" placeholder="40">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Class Location *</label>
+      <div class="geo-status" id="modal-geo">
+        <div class="geo-dot" id="m-dot"></div>
+        <div>
+          <div id="m-geo-text" style="font-weight:500">Click below to detect location</div>
+          <div id="m-geo-sub" style="font-size:0.8rem;color:var(--text-muted)">Or enter manually</div>
+        </div>
+      </div>
+      <button class="btn btn-secondary btn-sm" style="margin-bottom:0.8rem" onclick="detectTeacherLocation()">📍 Use My Current Location</button>
+      <div class="form-grid">
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">Latitude</label>
+          <input type="number" class="form-input" id="s-lat" step="any" placeholder="e.g. 12.9716">
+        </div>
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">Longitude</label>
+          <input type="number" class="form-input" id="s-lng" step="any" placeholder="e.g. 77.5946">
+        </div>
+      </div>
+    </div>
+    <button class="btn btn-primary btn-full" onclick="createSession()" style="margin-top:1rem">✅ Create Session</button>
+  </div>
+</div>
+
+<!-- ADD STUDENT MODAL -->
+<div class="modal-overlay" id="student-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">👤 Add New Student</div>
+      <button class="modal-close" onclick="closeModal('student-modal')">✕</button>
+    </div>
+    <div id="student-modal-msg"></div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label class="form-label">Full Name *</label>
+        <input type="text" class="form-input" id="stu-name" placeholder="Student name">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Roll Number *</label>
+        <input type="text" class="form-input" id="stu-roll" placeholder="e.g. CS001">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Department</label>
+      <input type="text" class="form-input" id="stu-dept" placeholder="e.g. Computer Science">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Login Password <span style="color:var(--text-muted);font-weight:400">(student uses this to login)</span></label>
+      <input type="text" class="form-input" id="stu-password" placeholder="Default: student123">
+    </div>
+    <div class="form-group">
+      <label class="form-label">📸 Photo (for face recognition)</label>
+      <input type="file" class="form-input" id="stu-photo" accept="image/*" onchange="previewPhoto(this)">
+      <div style="margin-top:0.5rem" id="photo-preview-container" style="display:none">
+        <img id="photo-preview-img" class="photo-preview" style="display:none">
+      </div>
+    </div>
+    <button class="btn btn-primary btn-full" onclick="addStudent()" style="margin-top:0.5rem">✅ Add Student</button>
+  </div>
+</div>
+
+<script>
+  let isLoggedIn = false;
+  let activeSession = null;
+  let allSessions = [];
+
+  // Set today's date
+  document.getElementById('s-date').value = new Date().toISOString().split('T')[0];
+
+  async function doLogin() {
+    const u = document.getElementById('login-user').value;
+    const p = document.getElementById('login-pass').value;
+    try {
+      const res = await fetch('/api/admin/login', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({username:u, password:p})
+      });
+      const data = await res.json();
+      if (data.success) {
+        isLoggedIn = true;
+        document.getElementById('login-section').style.display = 'none';
+        document.getElementById('admin-section').style.display = 'block';
+        loadAll();
+      } else {
+        document.getElementById('login-err').style.display = 'flex';
+        document.getElementById('login-err').textContent = '❌ ' + data.message;
+      }
+    } catch(e) {
+      document.getElementById('login-err').style.display = 'flex';
+      document.getElementById('login-err').textContent = '❌ Server error';
+    }
+  }
+
+  document.getElementById('login-pass').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
+
+  function logout() {
+    isLoggedIn = false;
+    document.getElementById('login-section').style.display = 'flex';
+    document.getElementById('admin-section').style.display = 'none';
+  }
+
+  function switchTab(name) {
+    document.querySelectorAll('.tab').forEach((t,i) => {
+      const names = ['sessions','students','live','records'];
+      t.classList.toggle('active', names[i] === name);
+    });
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+    document.getElementById('tab-'+name).classList.add('active');
+    if (name === 'records') loadRecords();
+    if (name === 'live') loadLive();
+  }
+
+  let liveInterval = null;
+
+  async function loadLive() {
+    if (!activeSession) {
+      document.getElementById('live-board').innerHTML =
+        '<div class="empty-state"><div class="e-icon">📡</div><p>No active session.<br>Create a session first to see live tracking.</p></div>';
+      return;
+    }
+    document.getElementById('live-session-info').style.display = 'flex';
+    document.getElementById('live-session-info').textContent =
+      `Monitoring: ${activeSession.subject} | ${activeSession.date} | Geo-fence: ${activeSession.radius}m | Duration: ${activeSession.monitor_minutes||40} min`;
+
+    try {
+      const rows = await fetch('/api/attendance/live?session_id=' + activeSession.id).then(r=>r.json());
+      const board = document.getElementById('live-board');
+      if (!rows.length) {
+        board.innerHTML = '<div class="empty-state"><div class="e-icon">👤</div><p>No students have marked attendance yet.</p></div>';
+        return;
+      }
+
+      const statusBadge = s => {
+        if(s==='confirmed') return '<span class="badge badge-success">✅ Confirmed</span>';
+        if(s==='monitoring') return '<span class="badge" style="background:rgba(6,182,212,0.2);color:#67e8f9">📡 Monitoring</span>';
+        if(s==='absent_left') return '<span class="badge badge-danger">❌ Left Zone</span>';
+        if(s==='absent_gps_off') return '<span class="badge badge-danger">❌ GPS Off</span>';
+        return '<span class="badge badge-warning">?</span>';
+      };
+
+      board.innerHTML = `
+        <div style="display:grid;gap:0.6rem">
+          ${rows.map(r => {
+            const ping = r.latest_ping;
+            const dist = ping ? `${ping.distance_from_class}m` : '—';
+            const lastSeen = ping ? new Date(ping.ping_time).toLocaleTimeString() : '—';
+            const elapsed = r.monitoring_start ? Math.round((Date.now()-new Date(r.monitoring_start).getTime())/60000) : 0;
+            return `
+              <div style="display:flex;align-items:center;gap:1rem;padding:0.8rem;background:var(--card2);border-radius:10px;flex-wrap:wrap">
+                <div style="flex:1;min-width:140px">
+                  <div style="font-weight:600;font-size:0.9rem">${r.student_name}</div>
+                  <div style="font-size:0.75rem;color:var(--text-muted)">${r.roll_no}</div>
+                </div>
+                <div>${statusBadge(r.status)}</div>
+                <div style="font-size:0.78rem;color:var(--text-muted);text-align:center">
+                  <div>📍 ${dist}</div>
+                  <div>🕐 ${lastSeen}</div>
+                </div>
+                <div style="font-size:0.78rem;color:var(--text-muted);text-align:center">
+                  <div>⏱ ${elapsed}min</div>
+                  <div>📶 ${r.ping_count} pings</div>
+                </div>
+              </div>`;
+          }).join('')}
+        </div>
+        <div style="margin-top:1rem;display:flex;gap:1rem;font-size:0.82rem;flex-wrap:wrap">
+          <span>✅ Confirmed: ${rows.filter(r=>r.status==='confirmed').length}</span>
+          <span style="color:#67e8f9">📡 Monitoring: ${rows.filter(r=>r.status==='monitoring').length}</span>
+          <span style="color:var(--danger)">❌ Absent: ${rows.filter(r=>r.status.startsWith('absent')).length}</span>
+        </div>`;
+    } catch(e) {
+      document.getElementById('live-board').innerHTML = `<div class="alert alert-danger">❌ Error: ${e.message}</div>`;
+    }
+
+    // Auto-refresh
+    clearInterval(liveInterval);
+    liveInterval = setInterval(() => {
+      if (document.getElementById('tab-live').classList.contains('active')) loadLive();
+    }, 30000);
+  }
+
+  async function loadAll() {
+    await loadStudents();
+    await loadSessions();
+    loadStats();
+  }
+
+  async function loadStats() {
+    try {
+      const [s,ss,r] = await Promise.all([
+        fetch('/api/students').then(r=>r.json()),
+        fetch('/api/sessions').then(r=>r.json()),
+        fetch('/api/attendance').then(r=>r.json())
+      ]);
+      document.getElementById('d-students').textContent = s.length;
+      document.getElementById('d-sessions').textContent = ss.length;
+      document.getElementById('d-records').textContent = r.length;
+    } catch(e){}
+  }
+
+  async function loadStudents() {
+    try {
+      const res = await fetch('/api/students');
+      const data = await res.json();
+      const container = document.getElementById('students-list');
+      if (!data.length) {
+        container.innerHTML = '<div class="empty-state"><div class="e-icon">👤</div><p>No students registered yet.<br>Click "Add Student" to add one.</p></div>';
+        return;
+      }
+      container.innerHTML = `
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Photo</th><th>Name</th><th>Roll No</th><th>Department</th><th>Added</th><th>Action</th></tr></thead>
+            <tbody>
+              ${data.map(s => `
+                <tr>
+                  <td>${s.has_photo
+                    ? `<img data-student-id="${s.id}" src="" class="stu-thumb"
+                         style="width:36px;height:36px;border-radius:50%;object-fit:cover">`
+                    : '<div style="width:36px;height:36px;border-radius:50%;background:var(--card2);display:inline-flex;align-items:center;justify-content:center">👤</div>'}</td>
+                  <td><strong>${s.name}</strong></td>
+                  <td><span class="badge badge-warning">${s.roll_no}</span></td>
+                  <td>${s.department || '-'}</td>
+                  <td style="color:var(--text-muted);font-size:0.8rem">${s.created_at ? s.created_at.split('T')[0] : ''}</td>
+                  <td><button class="btn btn-danger btn-sm" onclick="deleteStudent(${s.id}, '${s.name}')">🗑️</button></td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+      // Lazy load thumbnails
+      data.filter(s=>s.has_photo).forEach(s=>{
+        fetch(`/api/students/${s.id}/photo`).then(r=>r.json()).then(d=>{
+          const img=document.querySelector(`.stu-thumb[data-student-id="${s.id}"]`);
+          if(img && d.photo_data) img.src=d.photo_data;
+        }).catch(()=>{});
+      });
+    } catch(e) { console.error(e); }
+  }
+
+  async function loadSessions() {
+    try {
+      const res = await fetch('/api/sessions');
+      allSessions = await res.json();
+
+      const actRes = await fetch('/api/sessions/active');
+      activeSession = await actRes.json();
+
+      // Update active banner
+      if (activeSession) {
+        document.getElementById('active-session-info').style.display = 'flex';
+        document.getElementById('act-subj').textContent = activeSession.subject;
+        document.getElementById('act-meta').textContent =
+          `Teacher: ${activeSession.teacher||'N/A'} | Date: ${activeSession.date} | Radius: ${activeSession.radius}m`;
+        document.getElementById('close-session-btn').dataset.id = activeSession.id;
+      } else {
+        document.getElementById('active-session-info').style.display = 'none';
+      }
+
+      // Populate filter dropdown
+      const filter = document.getElementById('session-filter');
+      filter.innerHTML = '<option value="">All Sessions</option>' +
+        allSessions.map(s => `<option value="${s.id}">${s.subject} - ${s.date}</option>`).join('');
+
+      // Session table
+      const container = document.getElementById('sessions-list');
+      if (!allSessions.length) {
+        container.innerHTML = '<div class="empty-state"><div class="e-icon">📅</div><p>No sessions yet.<br>Click "New Session" to create one.</p></div>';
+        return;
+      }
+      container.innerHTML = `
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Subject</th><th>Teacher</th><th>Date</th><th>Radius</th><th>Status</th><th>Action</th></tr></thead>
+            <tbody>
+              ${allSessions.map(s => `
+                <tr>
+                  <td><strong>${s.subject}</strong></td>
+                  <td>${s.teacher||'-'}</td>
+                  <td>${s.date}</td>
+                  <td>${s.radius}m</td>
+                  <td>
+                    <span class="badge ${s.active ? 'badge-success' : 'badge-danger'}">
+                      ${s.active ? '🟢 Active' : '⭕ Closed'}
+                    </span>
+                  </td>
+                  <td style="display:flex;gap:0.4rem">
+                    <button class="btn btn-secondary btn-sm" onclick="viewSessionAttendance(${s.id})">👁️</button>
+                    ${s.active ? `<button class="btn btn-danger btn-sm" onclick="closeSessionById(${s.id})">🔴 Close</button>` : ''}
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+    } catch(e) { console.error(e); }
+  }
+
+  async function loadRecords() {
+    const sessionId = document.getElementById('session-filter').value;
+    try {
+      const url = '/api/attendance' + (sessionId ? '?session_id=' + sessionId : '');
+      const res = await fetch(url);
+      const data = await res.json();
+      const container = document.getElementById('records-list');
+      if (!data.length) {
+        container.innerHTML = '<div class="empty-state"><div class="e-icon">📊</div><p>No attendance records found.</p></div>';
+        return;
+      }
+      container.innerHTML = `
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Roll No</th><th>Name</th><th>Subject</th><th>Date</th><th>Time</th><th>Face</th></tr></thead>
+            <tbody>
+              ${data.map(r => `
+                <tr>
+                  <td><span class="badge badge-warning">${r.roll_no}</span></td>
+                  <td>${r.student_name}</td>
+                  <td>${r.subject}</td>
+                  <td>${r.date}</td>
+                  <td style="color:var(--text-muted);font-size:0.8rem">${new Date(r.marked_at).toLocaleTimeString()}</td>
+                  <td><span class="badge ${r.face_matched ? 'badge-success' : 'badge-warning'}">${r.face_matched ? '✅ Yes' : '⚠️ No'}</span></td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+        <div style="text-align:right;margin-top:0.8rem;font-size:0.85rem;color:var(--text-muted)">
+          Total: ${data.length} records
+        </div>
+      `;
+    } catch(e) { console.error(e); }
+  }
+
+  function viewSessionAttendance(id) {
+    document.getElementById('session-filter').value = id;
+    switchTab('records');
+    loadRecords();
+  }
+
+  function exportCSV() {
+    const sessionId = document.getElementById('session-filter').value;
+    window.open('/api/attendance/export' + (sessionId ? '?session_id=' + sessionId : ''));
+  }
+
+  // SESSION MODAL
+  function openSessionModal() {
+    document.getElementById('s-date').value = new Date().toISOString().split('T')[0];
+    document.getElementById('session-modal-msg').innerHTML = '';
+    openModal('session-modal');
+  }
+
+  function detectTeacherLocation() {
+    const dot = document.getElementById('m-dot');
+    const text = document.getElementById('m-geo-text');
+    const sub = document.getElementById('m-geo-sub');
+    dot.className = 'geo-dot';
+    text.textContent = 'Detecting location...';
+
+    navigator.geolocation.getCurrentPosition(pos => {
+      document.getElementById('s-lat').value = pos.coords.latitude.toFixed(6);
+      document.getElementById('s-lng').value = pos.coords.longitude.toFixed(6);
+      dot.className = 'geo-dot found';
+      text.textContent = `✅ Location: ${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`;
+      sub.textContent = `Accuracy: ±${Math.round(pos.coords.accuracy)}m`;
+    }, err => {
+      dot.className = 'geo-dot error';
+      text.textContent = 'Location unavailable: ' + err.message;
+      sub.textContent = 'Please enter coordinates manually';
+    }, { enableHighAccuracy: true });
+  }
+
+  async function createSession() {
+    const subject = document.getElementById('s-subject').value.trim();
+    const teacher = document.getElementById('s-teacher').value.trim();
+    const lat = parseFloat(document.getElementById('s-lat').value);
+    const lng = parseFloat(document.getElementById('s-lng').value);
+    const radius = parseInt(document.getElementById('s-radius').value);
+    const monitor_minutes = parseInt(document.getElementById('s-monitor').value) || 40;
+    const date = document.getElementById('s-date').value;
+
+    if (!subject || !date || isNaN(lat) || isNaN(lng)) {
+      document.getElementById('session-modal-msg').innerHTML = '<div class="alert alert-danger">⚠️ Fill in all required fields including location</div>';
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/sessions', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({subject, teacher, lat, lng, radius, monitor_minutes, date})
+      });
+      const data = await res.json();
+      if (data.success) {
+        closeModal('session-modal');
+        loadSessions();
+        loadStats();
+      }
+    } catch(e) {
+      document.getElementById('session-modal-msg').innerHTML = `<div class="alert alert-danger">❌ ${e.message}</div>`;
+    }
+  }
+
+  async function closeSession() {
+    if (!confirm('Close the active session?')) return;
+    await closeSessionById(activeSession.id);
+  }
+
+  async function closeSessionById(id) {
+    await fetch('/api/sessions/' + id + '/close', { method: 'PATCH' });
+    loadSessions();
+  }
+
+  // STUDENT MODAL
+  function openStudentModal() {
+    document.getElementById('stu-name').value = '';
+    document.getElementById('stu-roll').value = '';
+    document.getElementById('stu-dept').value = '';
+    document.getElementById('stu-password').value = '';
+    document.getElementById('stu-photo').value = '';
+    document.getElementById('photo-preview-img').style.display = 'none';
+    document.getElementById('student-modal-msg').innerHTML = '';
+    openModal('student-modal');
+  }
+
+  function previewPhoto(input) {
+    if (input.files && input.files[0]) {
+      const reader = new FileReader();
+      reader.onload = e => {
+        const img = document.getElementById('photo-preview-img');
+        img.src = e.target.result;
+        img.style.display = 'block';
+      };
+      reader.readAsDataURL(input.files[0]);
+    }
+  }
+
+  async function addStudent() {
+    const name = document.getElementById('stu-name').value.trim();
+    const roll_no = document.getElementById('stu-roll').value.trim();
+    const department = document.getElementById('stu-dept').value.trim();
+    const password = document.getElementById('stu-password').value.trim();
+    const photoInput = document.getElementById('stu-photo');
+
+    if (!name || !roll_no) {
+      document.getElementById('student-modal-msg').innerHTML = '<div class="alert alert-danger">⚠️ Name and Roll Number are required</div>';
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('name', name);
+    formData.append('roll_no', roll_no);
+    formData.append('department', department);
+    formData.append('password', password || 'student123');
+    if (photoInput.files[0]) formData.append('photo', photoInput.files[0]);
+
+    try {
+      const res = await fetch('/api/students', { method: 'POST', body: formData });
+      const data = await res.json();
+      if (data.success) {
+        closeModal('student-modal');
+        loadStudents();
+        loadStats();
+      } else {
+        document.getElementById('student-modal-msg').innerHTML = `<div class="alert alert-danger">❌ ${data.message}</div>`;
+      }
+    } catch(e) {
+      document.getElementById('student-modal-msg').innerHTML = `<div class="alert alert-danger">❌ ${e.message}</div>`;
+    }
+  }
+
+  async function deleteStudent(id, name) {
+    if (!confirm(`Delete student: ${name}?`)) return;
+    await fetch('/api/students/' + id, { method: 'DELETE' });
+    loadStudents();
+    loadStats();
+  }
+
+  function openModal(id) {
+    document.getElementById(id).classList.add('show');
+  }
+
+  function closeModal(id) {
+    document.getElementById(id).classList.remove('show');
+  }
+
+  // Close modal on backdrop click
+  document.querySelectorAll('.modal-overlay').forEach(el => {
+    el.addEventListener('click', e => { if (e.target === el) el.classList.remove('show'); });
+  });
+</script>
+</body>
+</html>

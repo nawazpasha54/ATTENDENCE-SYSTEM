@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mark Attendance - SmartAttend</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    .steps-nav {
+      display:flex; align-items:stretch; gap:0;
+      margin-bottom:2rem;
+      background:var(--card); border:1px solid var(--border);
+      border-radius:var(--radius); overflow:hidden;
+    }
+    .step-nav-item {
+      flex:1; padding:0.9rem 0.5rem; text-align:center;
+      font-size:0.8rem; color:var(--text-muted);
+      border-right:1px solid var(--border);
+    }
+    .step-nav-item:last-child { border-right:none; }
+    .step-nav-item.active { background:rgba(79,70,229,0.15); color:var(--primary-light); font-weight:600; }
+    .step-nav-item.done { background:rgba(16,185,129,0.1); color:var(--success); }
+    .step-nav-item .sn { font-size:1rem; display:block; margin-bottom:0.15rem; }
+
+    .face-wrap {
+      display:grid; grid-template-columns:1fr 1fr;
+      gap:1rem; margin-bottom:1rem;
+    }
+    @media(max-width:600px){ .face-wrap{ grid-template-columns:1fr; } }
+
+    .cam-box {
+      position:relative; border-radius:12px;
+      overflow:hidden; background:#000; aspect-ratio:4/3;
+      display:flex; align-items:center; justify-content:center;
+    }
+    .cam-box video {
+      position:absolute; top:0; left:0;
+      width:100%; height:100%; object-fit:cover;
+    }
+    .cam-box canvas {
+      position:absolute; top:0; left:0;
+      width:100%; height:100%;
+    }
+    .cam-box img {
+      position:absolute; top:0; left:0;
+      width:100%; height:100%; object-fit:cover;
+    }
+    .cam-label {
+      position:absolute; bottom:0; left:0; right:0;
+      background:rgba(0,0,0,0.65); padding:0.4rem 0.8rem;
+      font-size:0.75rem; color:#fff; z-index:10;
+    }
+    .corner {
+      position:absolute; width:22px; height:22px;
+      border-color:var(--primary-light); border-style:solid; z-index:10;
+    }
+    .corner.tl{ top:8px; left:8px; border-width:3px 0 0 3px; }
+    .corner.tr{ top:8px; right:8px; border-width:3px 3px 0 0; }
+    .corner.bl{ bottom:8px; left:8px; border-width:0 0 3px 3px; }
+    .corner.br{ bottom:8px; right:8px; border-width:0 3px 3px 0; }
+
+    .scan-anim {
+      position:absolute; left:5%; right:5%; height:2px;
+      background:var(--success);
+      box-shadow:0 0 10px var(--success), 0 0 20px var(--success);
+      animation:scanline 2s linear infinite;
+      z-index:10;
+    }
+    @keyframes scanline{ 0%{top:10%} 100%{top:90%} }
+
+    .model-bar {
+      display:flex; align-items:center; gap:0.8rem;
+      padding:0.9rem 1.1rem;
+      background:var(--card2); border-radius:10px; margin-bottom:0.8rem;
+    }
+    .geo-bar {
+      display:flex; align-items:center; gap:0.8rem;
+      padding:0.9rem 1.1rem;
+      background:var(--card2); border-radius:10px; margin-bottom:0.8rem;
+    }
+    .dot{ width:12px; height:12px; border-radius:50%; flex-shrink:0; }
+    .dot.pending{ background:var(--warning); animation:pulse 1.5s infinite; }
+    .dot.ok{ background:var(--success); }
+    .dot.fail{ background:var(--danger); }
+    @keyframes pulse{ 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+    .pbar-wrap{ background:var(--card2); border-radius:100px; height:5px; margin:0.5rem 0 1rem; }
+    .pbar{ height:100%; border-radius:100px; background:var(--primary); transition:width 0.4s; }
+
+    .check-list{ list-style:none; padding:0; margin:0; }
+    .check-list li{
+      display:flex; align-items:center; gap:0.7rem;
+      padding:0.55rem 0; border-bottom:1px solid var(--border);
+      font-size:0.87rem;
+    }
+    .check-list li:last-child{ border-bottom:none; }
+    .ci{ font-size:1.1rem; width:22px; text-align:center; }
+
+    /* Error popup */
+    .error-popup {
+      position:fixed; top:50%; left:50%;
+      transform:translate(-50%,-50%) scale(0.8);
+      background:var(--card);
+      border:2px solid var(--danger);
+      border-radius:20px;
+      padding:2.5rem 2rem;
+      text-align:center;
+      z-index:9999;
+      max-width:340px;
+      width:90%;
+      opacity:0;
+      pointer-events:none;
+      transition:all 0.3s;
+      box-shadow:0 20px 60px rgba(0,0,0,0.6);
+    }
+    .error-popup.show {
+      opacity:1;
+      pointer-events:all;
+      transform:translate(-50%,-50%) scale(1);
+    }
+    .error-popup-bg {
+      position:fixed; inset:0;
+      background:rgba(0,0,0,0.6);
+      z-index:9998;
+      opacity:0; pointer-events:none; transition:opacity 0.3s;
+    }
+    .error-popup-bg.show { opacity:1; pointer-events:all; }
+
+    .student-info-bar {
+      background:var(--card2);
+      border:1px solid var(--border);
+      border-radius:10px;
+      padding:0.8rem 1.2rem;
+      display:flex;
+      align-items:center;
+      gap:1rem;
+      margin-bottom:1.5rem;
+    }
+    .student-avatar {
+      width:44px; height:44px; border-radius:50%;
+      background:var(--primary);
+      display:flex; align-items:center; justify-content:center;
+      font-size:1.2rem; flex-shrink:0;
+      overflow:hidden;
+    }
+    .student-avatar img { width:100%; height:100%; object-fit:cover; }
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <div class="nav-brand"><span class="nav-icon">🎓</span><span>SmartAttend</span></div>
+    <div class="nav-links">
+      <a href="/" class="nav-link">Home</a>
+      <a href="/student.html" class="nav-link">Dashboard</a>
+      <a href="/admin.html" class="nav-link">Admin</a>
+    </div>
+  </nav>
+
+  <!-- Error popup -->
+  <div class="error-popup-bg" id="err-bg" onclick="closeErrorPopup()"></div>
+  <div class="error-popup" id="err-popup">
+    <div style="font-size:3.5rem;margin-bottom:1rem">❌</div>
+    <h3 style="color:var(--danger);font-size:1.2rem;margin-bottom:0.8rem" id="err-title">Face Not Matched</h3>
+    <p style="color:var(--text-muted);font-size:0.88rem;line-height:1.6;margin-bottom:1.5rem" id="err-body">
+      Your face does not match the registered photo. Attendance not marked.
+    </p>
+    <button class="btn btn-danger btn-full" onclick="closeErrorPopup()">Try Again</button>
+  </div>
+
+  <div class="page-container" style="max-width:820px">
+    <div class="page-header">
+      <h1>📋 Mark Attendance</h1>
+      <p>Verify your location and face to mark attendance</p>
+    </div>
+
+    <!-- Not logged in warning -->
+    <div id="not-logged-in" style="display:none">
+      <div class="alert alert-warning" style="margin-bottom:1rem">
+        ⚠️ You must be logged in to mark attendance.
+      </div>
+      <a href="/student.html" class="btn btn-primary">Login as Student →</a>
+    </div>
+
+    <!-- No session warning -->
+    <div id="no-session-msg" class="alert alert-warning" style="display:none">
+      ⚠️ <strong>No active session.</strong> Ask your teacher to create a session first.
+    </div>
+
+    <!-- Active session banner -->
+    <div id="session-banner" class="session-active-banner" style="display:none">
+      <div>
+        <h3 id="sess-title" style="font-size:1rem;font-weight:600;color:var(--success)">—</h3>
+        <p id="sess-meta" style="font-size:0.82rem;color:var(--text-muted);margin-top:0.2rem">—</p>
+      </div>
+      <span class="badge badge-success">🟢 Active Session</span>
+    </div>
+
+    <!-- Main content (hidden until logged in check done) -->
+    <div id="main-content" style="display:none">
+
+      <!-- Student info bar -->
+      <div class="student-info-bar">
+        <div class="student-avatar" id="student-avatar">👤</div>
+        <div>
+          <div style="font-weight:600" id="student-name-bar">—</div>
+          <div style="font-size:0.8rem;color:var(--text-muted)" id="student-roll-bar">—</div>
+        </div>
+        <div style="margin-left:auto">
+          <a href="/student.html" style="font-size:0.8rem;color:var(--text-muted)">Not you? Switch →</a>
+        </div>
+      </div>
+
+      <!-- Step Nav -->
+      <div class="steps-nav">
+        <div class="step-nav-item active" id="snav-1"><span class="sn">📍</span>Location</div>
+        <div class="step-nav-item" id="snav-2"><span class="sn">📸</span>Face Scan</div>
+        <div class="step-nav-item" id="snav-3"><span class="sn">✅</span>Submit</div>
+      </div>
+
+      <!-- STEP 1: Location -->
+      <div id="step-1">
+        <div class="card">
+          <div class="card-title">📍 Step 1: Location Verification</div>
+          <div class="geo-bar">
+            <div class="dot pending" id="geo-dot"></div>
+            <div>
+              <div id="geo-txt" style="font-weight:500">Checking your GPS...</div>
+              <div id="geo-sub" style="font-size:0.78rem;color:var(--text-muted);margin-top:0.1rem">Please allow location access when prompted</div>
+            </div>
+          </div>
+          <div class="pbar-wrap"><div class="pbar" id="geo-pbar" style="width:20%"></div></div>
+          <div id="geo-result"></div>
+          <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:1rem">
+            <button class="btn btn-secondary btn-sm" onclick="checkGeo()">🔄 Retry GPS</button>
+            <button class="btn btn-secondary btn-sm" onclick="demoGeo()">🧪 Demo Mode (no GPS)</button>
+          </div>
+          <button class="btn btn-primary btn-full" id="btn1" onclick="goStep(2)" disabled>Continue →</button>
+        </div>
+      </div>
+
+      <!-- STEP 2: Face Recognition -->
+      <div id="step-2" style="display:none">
+        <div class="card">
+          <div class="card-title">📸 Step 2: Face Verification</div>
+
+          <div class="model-bar" id="model-bar">
+            <span id="model-icon" style="font-size:1.3rem">⏳</span>
+            <div>
+              <div id="model-txt" style="font-weight:500">Loading face recognition AI...</div>
+              <div id="model-sub" style="font-size:0.78rem;color:var(--text-muted)">This takes 15–30 seconds on first load</div>
+            </div>
+          </div>
+          <div class="pbar-wrap"><div class="pbar" id="model-pbar" style="width:5%"></div></div>
+
+          <div id="face-ui" style="display:none">
+            <div class="face-wrap">
+              <div>
+                <div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:0.4rem">📷 Live Camera — look straight at it</div>
+                <div class="cam-box">
+                  <video id="video" autoplay muted playsinline></video>
+                  <canvas id="overlay"></canvas>
+                  <div class="scan-anim" id="scan-line"></div>
+                  <div class="corner tl"></div><div class="corner tr"></div>
+                  <div class="corner bl"></div><div class="corner br"></div>
+                  <div class="cam-label" id="cam-lbl">Starting camera...</div>
+                </div>
+              </div>
+              <div>
+                <div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:0.4rem">🖼️ Your Registered Photo</div>
+                <div class="cam-box" style="background:var(--card2)">
+                  <img id="ref-img" src="" alt="ref" style="display:none">
+                  <div id="no-ref" style="text-align:center;padding:1rem;color:var(--text-muted);font-size:0.82rem;z-index:1;position:relative">
+                    No photo registered.<br>
+                    <span style="font-size:0.72rem">Ask admin to upload your photo.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div id="face-status" class="alert alert-info" style="margin-bottom:1rem">
+              👁️ Position your face in the camera frame and click Verify.
+            </div>
+
+            <button class="btn btn-primary btn-full" id="btn-scan" onclick="doFaceScan()">
+              📸 Verify My Face
+            </button>
+            <button class="btn btn-secondary btn-sm" id="btn-retry" onclick="resetFaceScan()" style="display:none;margin-top:0.5rem;width:100%;justify-content:center">
+              🔄 Try Again
+            </button>
+          </div>
+
+          <button class="btn btn-primary btn-full" id="btn2" onclick="goStep(3)" disabled style="margin-top:1rem">Continue →</button>
+        </div>
+      </div>
+
+      <!-- STEP 3: Confirm -->
+      <div id="step-3" style="display:none">
+        <div class="card" style="border-color:var(--success)">
+          <div class="card-title" style="color:var(--success)">✅ Step 3: Confirm & Submit</div>
+          <ul class="check-list" id="confirm-list"></ul>
+          <button class="btn btn-success btn-full btn-lg" id="btn-submit"
+            onclick="submitAttendance()" style="margin-top:1.5rem">✅ Mark My Attendance</button>
+        </div>
+      </div>
+
+    </div><!-- end main-content -->
+
+    <div id="final" style="display:none"></div>
+  </div>
+
+  <script src="https://unpkg.com/face-api.js@0.22.2/dist/face-api.min.js"></script>
+  <script>
+  let currentStudent = null;
+  let currentSession = null;
+  let userLat = null, userLng = null;
+  let geoOK = false, faceOK = false;
+  let cameraStream = null, modelsLoaded = false;
+
+  const MODEL_URLS = [
+    'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.13/model',
+    'https://unpkg.com/face-api.js@0.22.2/weights',
+    'https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights'
+  ];
+
+  // ── Error Popup ───────────────────────────────────────
+  function showError(title, body) {
+    document.getElementById('err-title').textContent = title;
+    document.getElementById('err-body').textContent = body;
+    document.getElementById('err-popup').classList.add('show');
+    document.getElementById('err-bg').classList.add('show');
+  }
+
+  function closeErrorPopup() {
+    document.getElementById('err-popup').classList.remove('show');
+    document.getElementById('err-bg').classList.remove('show');
+  }
+
+  // ── Init ──────────────────────────────────────────────
+  async function init() {
+    // Check if student is logged in
+    const saved = sessionStorage.getItem('student');
+    if (!saved) {
+      document.getElementById('not-logged-in').style.display = 'block';
+      return;
+    }
+
+    currentStudent = JSON.parse(saved);
+    document.getElementById('main-content').style.display = 'block';
+
+    // Show student info
+    document.getElementById('student-name-bar').textContent = currentStudent.name;
+    document.getElementById('student-roll-bar').textContent = 'Roll No: ' + currentStudent.roll_no + ' · ' + (currentStudent.department || '');
+
+    // Load avatar
+    if (currentStudent.photo_data) {
+      const av = document.getElementById('student-avatar');
+      av.innerHTML = `<img src="${currentStudent.photo_data}" alt="${currentStudent.name}">`;
+    }
+
+    // Load session
+    try {
+      currentSession = await fetch('/api/sessions/active').then(r => r.json());
+      if (currentSession) {
+        document.getElementById('session-banner').style.display = 'flex';
+        document.getElementById('sess-title').textContent = currentSession.subject;
+        document.getElementById('sess-meta').textContent =
+          `Teacher: ${currentSession.teacher || 'N/A'} · ${currentSession.date} · Geo-fence: ${currentSession.radius}m`;
+      } else {
+        document.getElementById('no-session-msg').style.display = 'flex';
+      }
+    } catch(e) {}
+
+    // Start geo
+    checkGeo();
+  }
+
+  // ── Step Navigation ───────────────────────────────────
+  function goStep(n) {
+    [1,2,3].forEach(i => {
+      document.getElementById('step-'+i).style.display = 'none';
+      const nav = document.getElementById('snav-'+i);
+      nav.className = 'step-nav-item' + (i < n ? ' done' : i === n ? ' active' : '');
+    });
+    document.getElementById('step-'+n).style.display = 'block';
+    window.scrollTo({top:0, behavior:'smooth'});
+    if (n === 2) startFaceStep();
+    if (n === 3) buildConfirm();
+  }
+
+  // ── Step 1: Geo ───────────────────────────────────────
+  function checkGeo() {
+    geoOK = false;
+    document.getElementById('btn1').disabled = true;
+    setGeo('pending', 'Checking your GPS...', 'Please allow location access when prompted');
+    document.getElementById('geo-pbar').style.width = '20%';
+    document.getElementById('geo-result').innerHTML = '';
+
+    if (!navigator.geolocation) {
+      setGeo('fail', 'Geolocation not supported', 'Use Demo Mode below');
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(pos => {
+      userLat = pos.coords.latitude;
+      userLng = pos.coords.longitude;
+      document.getElementById('geo-pbar').style.width = '100%';
+
+      if (!currentSession) {
+        setGeo('ok', '✅ Location found', `${userLat.toFixed(5)}, ${userLng.toFixed(5)}`);
+        geoOK = true;
+        document.getElementById('btn1').disabled = false;
+        return;
+      }
+
+      const dist = haversine(userLat, userLng, currentSession.lat, currentSession.lng);
+      if (dist <= currentSession.radius) {
+        setGeo('ok', `✅ You are inside the classroom zone`, `${Math.round(dist)}m from class centre`);
+        showGeoResult('success', `📍 Location verified — you are ${Math.round(dist)}m from class.`);
+        geoOK = true;
+        document.getElementById('btn1').disabled = false;
+      } else {
+        setGeo('fail', `❌ You are ${Math.round(dist)}m away — outside the ${currentSession.radius}m zone`,
+          `Your coords: ${userLat.toFixed(4)}, ${userLng.toFixed(4)}`);
+        showGeoResult('danger', `❌ You are ${Math.round(dist)}m from class. You must be within ${currentSession.radius}m.`);
+      }
+    }, err => {
+      setGeo('fail', 'GPS unavailable', err.message);
+      showGeoResult('warning', '⚠️ GPS failed. If you are physically in class, use Demo Mode.');
+      document.getElementById('geo-pbar').style.width = '50%';
+    }, { enableHighAccuracy: true, timeout: 12000 });
+  }
+
+  function demoGeo() {
+    userLat = currentSession ? currentSession.lat : 12.9716;
+    userLng = currentSession ? currentSession.lng : 77.5946;
+    geoOK = true;
+    setGeo('ok', '🧪 Demo Mode — using classroom coordinates', 'GPS bypassed for demo');
+    document.getElementById('geo-pbar').style.width = '100%';
+    showGeoResult('warning', '⚠️ Demo mode active.');
+    document.getElementById('btn1').disabled = false;
+  }
+
+  function setGeo(state, txt, sub) {
+    document.getElementById('geo-dot').className = 'dot ' + state;
+    document.getElementById('geo-txt').textContent = txt;
+    document.getElementById('geo-sub').textContent = sub;
+  }
+
+  function showGeoResult(type, msg) {
+    document.getElementById('geo-result').innerHTML =
+      `<div class="alert alert-${type}" style="margin-bottom:0.8rem">${msg}</div>`;
+  }
+
+  function haversine(a, b, c, d) {
+    const R = 6371000, dL = (c-a)*Math.PI/180, dO = (d-b)*Math.PI/180;
+    const x = Math.sin(dL/2)**2 + Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.sin(dO/2)**2;
+    return R*2*Math.atan2(Math.sqrt(x), Math.sqrt(1-x));
+  }
+
+  // ── Step 2: Face Recognition ──────────────────────────
+  async function startFaceStep() {
+    faceOK = false;
+    document.getElementById('btn2').disabled = true;
+    document.getElementById('face-status').className = 'alert alert-info';
+    document.getElementById('face-status').textContent = '👁️ Position your face in the camera and click Verify.';
+    document.getElementById('btn-scan').style.display = 'block';
+    document.getElementById('btn-retry').style.display = 'none';
+
+    // Load registered photo
+    if (currentStudent.photo_data) {
+      document.getElementById('ref-img').src = currentStudent.photo_data;
+      document.getElementById('ref-img').style.display = 'block';
+      document.getElementById('no-ref').style.display = 'none';
+    } else {
+      try {
+        const d = await fetch(`/api/students/${currentStudent.id}/photo`).then(r => r.json());
+        if (d.photo_data) {
+          currentStudent.photo_data = d.photo_data;
+          document.getElementById('ref-img').src = d.photo_data;
+          document.getElementById('ref-img').style.display = 'block';
+          document.getElementById('no-ref').style.display = 'none';
+        }
+      } catch(e) {}
+    }
+
+    await loadModels();
+    await openCamera();
+    document.getElementById('face-ui').style.display = 'block';
+  }
+
+  async function loadModels() {
+    if (modelsLoaded) {
+      setModel('✅', 'Face AI ready!', 'Models already loaded', 100);
+      return;
+    }
+    for (let i = 0; i < MODEL_URLS.length; i++) {
+      const url = MODEL_URLS[i];
+      try {
+        setModel('⏳', 'Loading detector model...', `Trying source ${i+1} of ${MODEL_URLS.length}`, 15);
+        await faceapi.nets.tinyFaceDetector.loadFromUri(url);
+        setModel('⏳', 'Loading landmark model...', 'Step 2 of 3...', 45);
+        await faceapi.nets.faceLandmark68Net.loadFromUri(url);
+        setModel('⏳', 'Loading recognition model...', 'Step 3 of 3 — almost ready...', 80);
+        await faceapi.nets.faceRecognitionNet.loadFromUri(url);
+        // Also load SSD for better detection
+        try {
+          await faceapi.nets.ssdMobilenetv1.loadFromUri(url);
+        } catch(e) { /* optional */ }
+        modelsLoaded = true;
+        setModel('✅', 'Face recognition ready!', 'All models loaded successfully', 100);
+        document.getElementById('model-bar').style.background = 'rgba(16,185,129,0.1)';
+        return;
+      } catch(e) {
+        console.warn('Model source failed:', url, e.message);
+      }
+    }
+    setModel('⚠️', 'Could not load AI models', 'Check internet connection and reload', 100);
+    document.getElementById('model-bar').style.background = 'rgba(239,68,68,0.1)';
+  }
+
+  function setModel(icon, txt, sub, pct) {
+    document.getElementById('model-icon').textContent = icon;
+    document.getElementById('model-txt').textContent = txt;
+    document.getElementById('model-sub').textContent = sub;
+    document.getElementById('model-pbar').style.width = pct + '%';
+  }
+
+  async function openCamera() {
+    try {
+      cameraStream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          facingMode: 'user',
+          frameRate: { ideal: 30 }
+        }
+      });
+      const video = document.getElementById('video');
+      video.srcObject = cameraStream;
+      await new Promise(res => video.onloadedmetadata = res);
+      document.getElementById('cam-lbl').textContent = '📷 Look directly at camera — keep face well lit';
+      document.getElementById('scan-line').style.display = 'block';
+    } catch(e) {
+      document.getElementById('cam-lbl').textContent = '❌ Camera access denied';
+      document.getElementById('face-status').className = 'alert alert-danger';
+      document.getElementById('face-status').textContent = '❌ Camera access denied. Allow camera in browser settings then reload.';
+    }
+  }
+
+  async function doFaceScan() {
+    if (!modelsLoaded) {
+      showError('AI Not Ready', 'Face recognition models are still loading. Please wait a moment and try again.');
+      return;
+    }
+
+    const btn = document.getElementById('btn-scan');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Scanning...';
+    document.getElementById('btn-retry').style.display = 'none';
+    document.getElementById('face-status').className = 'alert alert-info';
+    document.getElementById('face-status').textContent = '🔍 Detecting your face... hold still...';
+
+    const video = document.getElementById('video');
+
+    try {
+      // Use higher quality detection options for better accuracy
+      const detectionOptions = new faceapi.TinyFaceDetectorOptions({
+        inputSize: 512,       // larger = more accurate (320 default → 512)
+        scoreThreshold: 0.35  // lower = detects more faces
+      });
+
+      // Take multiple samples and use best one
+      let bestLive = null;
+      let bestScore = 0;
+
+      for (let attempt = 0; attempt < 3; attempt++) {
+        await new Promise(res => setTimeout(res, 200)); // small gap between samples
+        const det = await faceapi
+          .detectSingleFace(video, detectionOptions)
+          .withFaceLandmarks()
+          .withFaceDescriptor();
+        if (det && det.detection.score > bestScore) {
+          bestScore = det.detection.score;
+          bestLive = det;
+        }
+      }
+
+      if (!bestLive) {
+        document.getElementById('face-status').className = 'alert alert-warning';
+        document.getElementById('face-status').textContent = '⚠️ No face detected. Try again.';
+        document.getElementById('btn-retry').style.display = 'block';
+        btn.disabled = false;
+        btn.innerHTML = '📸 Verify My Face';
+        showError(
+          'Face Not Detected',
+          'Make sure your face is clearly visible, well lit, and looking straight at the camera. Remove glasses if possible.'
+        );
+        return;
+      }
+
+      // Draw detection box
+      const canvas = document.getElementById('overlay');
+      faceapi.matchDimensions(canvas, { width: video.videoWidth, height: video.videoHeight });
+      const resized = faceapi.resizeResults(bestLive, { width: video.videoWidth, height: video.videoHeight });
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.strokeStyle = '#10b981';
+      ctx.lineWidth = 3;
+      const b = resized.detection.box;
+      ctx.strokeRect(b.x, b.y, b.width, b.height);
+
+      document.getElementById('face-status').className = 'alert alert-info';
+      document.getElementById('face-status').textContent = '✅ Face detected! Comparing with registered photo...';
+      document.getElementById('scan-line').style.display = 'none';
+
+      const refImg = document.getElementById('ref-img');
+      const hasPhoto = currentStudent.photo_data && refImg.complete && refImg.naturalWidth > 0;
+
+      if (!hasPhoto) {
+        // No registered photo — just confirm face presence
+        faceOK = true;
+        document.getElementById('face-status').className = 'alert alert-warning';
+        document.getElementById('face-status').textContent = '⚠️ No registered photo found. Face presence confirmed only. Ask admin to upload your photo.';
+        document.getElementById('btn2').disabled = false;
+        document.getElementById('btn-retry').style.display = 'block';
+        btn.disabled = false;
+        btn.innerHTML = '📸 Verify My Face';
+        return;
+      }
+
+      // Compare with registered photo — multiple passes for accuracy
+      let refDetection = null;
+      // Try with different options for the reference photo
+      const refOptions = [
+        new faceapi.TinyFaceDetectorOptions({ inputSize: 512, scoreThreshold: 0.2 }),
+        new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.15 }),
+      ];
+
+      for (const opts of refOptions) {
+        refDetection = await faceapi
+          .detectSingleFace(refImg, opts)
+          .withFaceLandmarks()
+          .withFaceDescriptor();
+        if (refDetection) break;
+      }
+
+      if (!refDetection) {
+        faceOK = false;
+        document.getElementById('face-status').className = 'alert alert-danger';
+        document.getElementById('face-status').textContent = '❌ Could not read face from your registered photo. Ask admin to upload a better photo.';
+        document.getElementById('btn-retry').style.display = 'block';
+        btn.disabled = false;
+        btn.innerHTML = '📸 Verify My Face';
+        showError('Photo Quality Issue', 'The registered photo in the system does not have a clearly visible face. Please ask your admin to upload a better photo of you.');
+        return;
+      }
+
+      // Calculate euclidean distance
+      const distance = faceapi.euclideanDistance(bestLive.descriptor, refDetection.descriptor);
+
+      // Convert to similarity (0-100 scale, higher = more similar)
+      // distance 0 = identical, distance 1 = completely different
+      // Typical match: distance < 0.4, Non-match: distance > 0.6
+      const similarity = Math.max(0, Math.round((1 - distance) * 100));
+
+      console.log('Face distance:', distance, 'Similarity:', similarity + '%');
+
+      // Threshold: distance < 0.55 = match (roughly 45%+ similarity)
+      // We reject if similarity < 40 (distance > 0.6)
+      if (distance > 0.6) {
+        // REJECT — face does not match
+        faceOK = false;
+        document.getElementById('face-status').className = 'alert alert-danger';
+        document.getElementById('face-status').textContent = '❌ Face does not match. Please try again.';
+        document.getElementById('btn-retry').style.display = 'block';
+        btn.disabled = false;
+        btn.innerHTML = '📸 Verify My Face';
+        showError(
+          'Face Does Not Match',
+          'Your face does not match the registered photo. Attendance cannot be marked. Ensure you are in good lighting and looking straight at the camera.'
+        );
+        return;
+      }
+
+      // PASS
+      faceOK = true;
+      document.getElementById('face-status').className = 'alert alert-success';
+      document.getElementById('face-status').textContent = '✅ Face verified successfully!';
+      document.getElementById('btn2').disabled = false;
+      document.getElementById('btn-retry').style.display = 'block';
+
+    } catch(e) {
+      document.getElementById('face-status').className = 'alert alert-danger';
+      document.getElementById('face-status').textContent = '❌ Error during scan: ' + e.message;
+      console.error(e);
+    }
+
+    btn.disabled = false;
+    btn.innerHTML = '📸 Verify My Face';
+  }
+
+  function resetFaceScan() {
+    faceOK = false;
+    document.getElementById('btn2').disabled = true;
+    document.getElementById('face-status').className = 'alert alert-info';
+    document.getElementById('face-status').textContent = '👁️ Position your face and click Verify.';
+    document.getElementById('btn-scan').disabled = false;
+    document.getElementById('btn-scan').innerHTML = '📸 Verify My Face';
+    document.getElementById('btn-retry').style.display = 'none';
+    document.getElementById('scan-line').style.display = 'block';
+    // Clear overlay
+    const canvas = document.getElementById('overlay');
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  }
+
+  // ── Step 3: Confirm ───────────────────────────────────
+  function buildConfirm() {
+    if (cameraStream) cameraStream.getTracks().forEach(t => t.stop());
+    document.getElementById('confirm-list').innerHTML = `
+      <li><span class="ci">👤</span><div><strong>${currentStudent.name}</strong> (${currentStudent.roll_no})</div></li>
+      <li><span class="ci">📚</span><div>Subject: ${currentSession ? currentSession.subject : 'N/A'}</div></li>
+      <li><span class="ci">📅</span><div>Date: ${currentSession ? currentSession.date : new Date().toISOString().split('T')[0]}</div></li>
+      <li><span class="ci">📍</span><div>Location: ${geoOK ? '✅ Verified' : '⚠️ Demo mode'}</div></li>
+      <li><span class="ci">📸</span><div>Face: ✅ Verified</div></li>
+      <li><span class="ci">🕐</span><div>${new Date().toLocaleTimeString()}</div></li>`;
+  }
+
+  // ── Submit ────────────────────────────────────────────
+  async function submitAttendance() {
+    const btn = document.getElementById('btn-submit');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Submitting...';
+
+    try {
+      const res = await fetch('/api/attendance/mark', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          student_id: currentStudent.id,
+          session_id: currentSession ? currentSession.id : 0,
+          lat: userLat || 0,
+          lng: userLng || 0,
+          face_matched: faceOK
+        })
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        if (cameraStream) cameraStream.getTracks().forEach(t => t.stop());
+        const name = encodeURIComponent(currentStudent.name);
+        const monMin = data.monitor_minutes || 40;
+        window.location.href =
+          `/monitor.html?student_id=${currentStudent.id}&session_id=${currentSession.id}` +
+          `&monitor_min=${monMin}&start=${Date.now()}&name=${name}`;
+      } else {
+        document.getElementById('main-content').style.display = 'none';
+        const fin = document.getElementById('final');
+        fin.style.display = 'block';
+        fin.innerHTML = `<div class="alert alert-danger">❌ ${data.message}</div>
+          <button class="btn btn-secondary" onclick="location.reload()">← Try Again</button>`;
+        btn.disabled = false;
+        btn.innerHTML = '✅ Mark My Attendance';
+      }
+    } catch(e) {
+      btn.disabled = false;
+      btn.innerHTML = '✅ Mark My Attendance';
+      showError('Server Error', e.message);
+    }
+  }
+
+  init();
+  </script>
+</body>
+</html>

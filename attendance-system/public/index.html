@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart Attendance System</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <nav class="navbar">
+    <div class="nav-brand">
+      <span class="nav-icon">🎓</span>
+      <span>SmartAttend</span>
+    </div>
+    <div class="nav-links">
+      <a href="/" class="nav-link active">Home</a>
+      <a href="/student.html" class="nav-link">Student Login</a>
+      <a href="/admin.html" class="nav-link">Admin</a>
+    </div>
+  </nav>
+
+  <div class="hero">
+    <div class="hero-content">
+      <div class="hero-badge">Engineering Project Demo</div>
+      <h1 class="hero-title">Smart Attendance System</h1>
+      <p class="hero-subtitle">Powered by Face Recognition & Geo-Fencing Technology</p>
+      <div class="hero-features">
+        <div class="feature-pill">📸 Face Recognition</div>
+        <div class="feature-pill">📍 Geo-Fencing</div>
+        <div class="feature-pill">🔒 Anti-Proxy</div>
+        <div class="feature-pill">📊 Analytics</div>
+      </div>
+      <div class="hero-buttons">
+        <a href="/student.html" class="btn btn-primary btn-lg">Student Login</a>
+        <a href="/admin.html" class="btn btn-secondary btn-lg">Admin Panel</a>
+      </div>
+    </div>
+    <div class="hero-visual">
+      <div class="visual-card">
+        <div class="visual-face">
+          <div class="face-scan">
+            <div class="scan-line"></div>
+            <div class="face-dots">
+              <span></span><span></span><span></span>
+              <span></span><span></span><span></span>
+              <span></span><span></span><span></span>
+            </div>
+          </div>
+          <div class="face-label">Face Verified ✓</div>
+        </div>
+        <div class="visual-info">
+          <div class="info-row"><span>📍</span><span>Within geofence: 45m</span></div>
+          <div class="info-row"><span>🎓</span><span>CS Engineering, Sem 5</span></div>
+          <div class="info-row success"><span>✅</span><span>Attendance Marked!</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="stats-bar">
+    <div class="stat-item">
+      <div class="stat-num" id="stat-students">0</div>
+      <div class="stat-label">Students</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num" id="stat-sessions">0</div>
+      <div class="stat-label">Sessions</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num" id="stat-records">0</div>
+      <div class="stat-label">Attendance Records</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num">100%</div>
+      <div class="stat-label">Anti-Proxy</div>
+    </div>
+  </div>
+
+  <div class="how-it-works">
+    <h2>How It Works</h2>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-icon">👩‍💼</div>
+        <h3>Teacher Creates Session</h3>
+        <p>Teacher opens admin panel, creates a session with subject, location, and geo-fence radius</p>
+      </div>
+      <div class="step-arrow">→</div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-icon">📍</div>
+        <h3>Location Verified</h3>
+        <p>Student's GPS location is checked — must be within the defined radius of the classroom</p>
+      </div>
+      <div class="step-arrow">→</div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-icon">📸</div>
+        <h3>Face Recognized</h3>
+        <p>Webcam captures face and matches it against the registered student photo</p>
+      </div>
+      <div class="step-arrow">→</div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-icon">✅</div>
+        <h3>Attendance Marked</h3>
+        <p>Record saved with timestamp, GPS coordinates, and face match confirmation</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    fetch('/api/students').then(r=>r.json()).then(d=>document.getElementById('stat-students').textContent=d.length);
+    fetch('/api/sessions').then(r=>r.json()).then(d=>document.getElementById('stat-sessions').textContent=d.length);
+    fetch('/api/attendance').then(r=>r.json()).then(d=>document.getElementById('stat-records').textContent=d.length);
+  </script>
+</body>
+</html>

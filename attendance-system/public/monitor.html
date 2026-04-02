@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Attendance Monitoring - SmartAttend</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    .monitor-hero {
+      text-align: center;
+      padding: 2rem 1rem 1rem;
+    }
+    .big-status {
+      font-size: 5rem;
+      margin-bottom: 0.5rem;
+      line-height: 1;
+    }
+    .status-label {
+      font-size: 1.4rem;
+      font-weight: 700;
+      margin-bottom: 0.3rem;
+    }
+    .status-sub {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+    }
+
+    /* Countdown ring */
+    .ring-wrap {
+      position: relative;
+      display: inline-block;
+      margin: 1.5rem auto;
+    }
+    .ring-svg { transform: rotate(-90deg); }
+    .ring-track { fill: none; stroke: var(--card2); stroke-width: 10; }
+    .ring-fill {
+      fill: none; stroke-width: 10;
+      stroke-linecap: round;
+      transition: stroke-dashoffset 1s linear, stroke 0.5s;
+    }
+    .ring-center {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+    }
+    .ring-time { font-size: 2rem; font-weight: 800; line-height: 1; }
+    .ring-label { font-size: 0.7rem; color: var(--text-muted); margin-top: 0.1rem; }
+
+    /* Pulse animation for monitoring */
+    .pulse-ring {
+      display: inline-block;
+      width: 16px; height: 16px;
+      border-radius: 50%;
+      background: var(--success);
+      position: relative;
+      margin-right: 6px;
+      vertical-align: middle;
+    }
+    .pulse-ring::before {
+      content: '';
+      position: absolute;
+      inset: -4px;
+      border-radius: 50%;
+      border: 2px solid var(--success);
+      animation: ripple 1.5s infinite;
+    }
+    @keyframes ripple {
+      0% { transform: scale(1); opacity: 1; }
+      100% { transform: scale(2); opacity: 0; }
+    }
+
+    /* GPS bar */
+    .gps-bar {
+      display: flex; align-items: center; gap: 0.8rem;
+      padding: 0.8rem 1.2rem;
+      background: var(--card2); border-radius: 10px;
+      margin-bottom: 0.8rem;
+    }
+    .gps-dot {
+      width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+    }
+    .gps-dot.ok { background: var(--success); }
+    .gps-dot.warn { background: var(--warning); animation: blink 1s step-end infinite; }
+    .gps-dot.bad { background: var(--danger); }
+    @keyframes blink { 50% { opacity: 0; } }
+
+    /* Ping log */
+    .ping-log {
+      max-height: 200px;
+      overflow-y: auto;
+      font-family: 'Courier New', monospace;
+      font-size: 0.78rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.7rem;
+    }
+    .ping-line {
+      padding: 0.2rem 0;
+      border-bottom: 1px solid var(--border);
+      color: var(--text-muted);
+    }
+    .ping-line:last-child { border-bottom: none; }
+    .ping-line.ok { color: #6ee7b7; }
+    .ping-line.warn { color: #fcd34d; }
+    .ping-line.bad { color: #fca5a5; }
+
+    /* Warning banner */
+    .warn-banner {
+      background: rgba(245,158,11,0.15);
+      border: 1px solid rgba(245,158,11,0.4);
+      border-radius: 10px;
+      padding: 1rem 1.2rem;
+      display: none;
+      align-items: flex-start;
+      gap: 0.7rem;
+      margin-bottom: 1rem;
+    }
+    .warn-banner.show { display: flex; }
+    .warn-banner .wb-icon { font-size: 1.4rem; flex-shrink:0; }
+
+    /* Final states */
+    .final-confirmed {
+      background: rgba(16,185,129,0.1);
+      border: 2px solid var(--success);
+      border-radius: var(--radius);
+      padding: 2.5rem;
+      text-align: center;
+    }
+    .final-absent {
+      background: rgba(239,68,68,0.1);
+      border: 2px solid var(--danger);
+      border-radius: var(--radius);
+      padding: 2.5rem;
+      text-align: center;
+    }
+
+    /* Map mini */
+    #mini-map {
+      width: 100%; height: 160px;
+      border-radius: 10px;
+      background: var(--card2);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.85rem; color: var(--text-muted);
+      border: 1px solid var(--border);
+      margin-bottom: 0.8rem;
+      overflow: hidden;
+    }
+    canvas#map-canvas { width: 100%; height: 100%; }
+
+    @media(max-width:600px){
+      .big-status { font-size: 3.5rem; }
+      .ring-time { font-size: 1.5rem; }
+    }
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <div class="nav-brand"><span class="nav-icon">🎓</span><span>SmartAttend</span></div>
+    <div class="nav-links">
+      <a href="/" class="nav-link">Home</a>
+      <a href="/student.html" class="nav-link">Dashboard</a>
+    </div>
+  </nav>
+
+  <div class="page-container" style="max-width:600px">
+
+    <!-- ── MONITORING STATE ───────────────────────────── -->
+    <div id="monitor-view">
+      <div class="monitor-hero">
+        <div class="big-status" id="big-icon">📍</div>
+        <div class="status-label" id="status-label">Attendance Monitoring Active</div>
+        <div class="status-sub" id="status-sub">Stay in class for the full monitoring period</div>
+      </div>
+
+      <!-- Countdown ring -->
+      <div style="text-align:center;margin-bottom:1rem">
+        <div class="ring-wrap">
+          <svg class="ring-svg" width="160" height="160" viewBox="0 0 160 160">
+            <circle class="ring-track" cx="80" cy="80" r="70"/>
+            <circle class="ring-fill" cx="80" cy="80" r="70" id="ring-fill"/>
+          </svg>
+          <div class="ring-center">
+            <div class="ring-time" id="ring-time">—:——</div>
+            <div class="ring-label">remaining</div>
+          </div>
+        </div>
+        <div style="font-size:0.82rem;color:var(--text-muted)" id="progress-text">—</div>
+      </div>
+
+      <!-- Warning banner -->
+      <div class="warn-banner" id="warn-banner">
+        <div class="wb-icon">⚠️</div>
+        <div>
+          <div style="font-weight:600;color:var(--warning)" id="warn-title">GPS Warning</div>
+          <div style="font-size:0.85rem;color:var(--text-muted);margin-top:0.2rem" id="warn-body">—</div>
+        </div>
+      </div>
+
+      <!-- GPS status -->
+      <div class="card">
+        <div class="card-title">📡 Live GPS Status</div>
+        <div class="gps-bar">
+          <div class="gps-dot ok" id="gps-dot"></div>
+          <div>
+            <div id="gps-txt" style="font-weight:500">Waiting for first ping...</div>
+            <div id="gps-sub" style="font-size:0.78rem;color:var(--text-muted)">Pinging every 60 seconds</div>
+          </div>
+          <div style="margin-left:auto;font-size:0.8rem;color:var(--text-muted)" id="ping-counter">0 pings</div>
+        </div>
+
+        <!-- Mini map -->
+        <div id="mini-map">
+          <canvas id="map-canvas"></canvas>
+        </div>
+
+        <!-- Ping log -->
+        <div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:0.4rem">📋 Ping Log</div>
+        <div class="ping-log" id="ping-log">
+          <div class="ping-line">Waiting for GPS pings...</div>
+        </div>
+      </div>
+
+      <!-- Info card -->
+      <div class="card" style="font-size:0.85rem;line-height:1.7;color:var(--text-muted)">
+        <div class="card-title">ℹ️ How GPS Monitoring Works</div>
+        Your location is checked every <strong style="color:var(--text)">60 seconds</strong> for
+        <strong style="color:var(--text)" id="monitor-min-text">40 minutes</strong>.<br>
+        Stay within the classroom zone to be marked <strong style="color:var(--success)">Confirmed Present</strong>.<br><br>
+        <strong style="color:var(--danger)">You will be marked Absent if:</strong>
+        <ul style="margin:0.4rem 0 0 1rem;list-style:disc">
+          <li>You leave the classroom geo-fence</li>
+          <li>You turn off GPS / deny location (2 failed pings)</li>
+        </ul>
+        <div style="margin-top:0.8rem;padding:0.6rem;background:var(--card2);border-radius:8px;font-size:0.8rem">
+          ⚠️ <strong>Keep this page open</strong> and location enabled throughout the class.
+        </div>
+      </div>
+    </div>
+
+    <!-- ── FINAL: CONFIRMED ───────────────────────────── -->
+    <div id="final-confirmed" style="display:none">
+      <div class="final-confirmed">
+        <div style="font-size:5rem;margin-bottom:1rem">✅</div>
+        <h2 style="color:var(--success);font-size:1.6rem;margin-bottom:0.5rem">Confirmed Present!</h2>
+        <p style="color:var(--text-muted);margin-bottom:1.5rem;line-height:1.8" id="confirmed-msg">
+          You stayed in the classroom for the full monitoring period.
+        </p>
+        <a href="/student.html" class="btn btn-success btn-lg">View My Attendance →</a>
+      </div>
+    </div>
+
+    <!-- ── FINAL: ABSENT ──────────────────────────────── -->
+    <div id="final-absent" style="display:none">
+      <div class="final-absent">
+        <div style="font-size:5rem;margin-bottom:1rem">❌</div>
+        <h2 style="color:var(--danger);font-size:1.6rem;margin-bottom:0.5rem">Marked Absent</h2>
+        <p style="color:var(--text-muted);margin-bottom:1.5rem;line-height:1.8" id="absent-msg">
+          Your attendance was revoked.
+        </p>
+        <a href="/student.html" class="btn btn-secondary">View My Dashboard</a>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+  // ── Load state from URL params ─────────────────────────────────────────────
+  const params = new URLSearchParams(location.search);
+  const STUDENT_ID  = parseInt(params.get('student_id'));
+  const SESSION_ID  = parseInt(params.get('session_id'));
+  const MONITOR_MIN = parseInt(params.get('monitor_min') || '40');
+  const START_TIME  = parseInt(params.get('start') || Date.now());
+  const STUDENT_NAME = decodeURIComponent(params.get('name') || 'Student');
+
+  if (!STUDENT_ID || !SESSION_ID) {
+    document.querySelector('.page-container').innerHTML =
+      '<div class="alert alert-danger">❌ Missing parameters. Go back and mark attendance first.</div>' +
+      '<a href="/mark.html" class="btn btn-primary" style="margin-top:1rem">← Mark Attendance</a>';
+  }
+
+  document.getElementById('monitor-min-text').textContent = MONITOR_MIN + ' minutes';
+
+  // ── Ring setup ─────────────────────────────────────────────────────────────
+  const TOTAL_SECS = MONITOR_MIN * 60;
+  const R = 70;
+  const CIRC = 2 * Math.PI * R;
+  const ringFill = document.getElementById('ring-fill');
+  ringFill.style.strokeDasharray = CIRC;
+  ringFill.style.strokeDashoffset = CIRC; // start empty
+
+  let pingCount = 0;
+  let monitorDone = false;
+  let lastLat = null, lastLng = null;
+  let sessionLat = null, sessionLng = null, sessionRadius = null;
+  let pingLog = [];
+
+  // ── Load session details ───────────────────────────────────────────────────
+  fetch('/api/sessions/active').then(r=>r.json()).then(s=>{
+    if(s){ sessionLat=s.lat; sessionLng=s.lng; sessionRadius=s.radius; }
+  }).catch(()=>{});
+
+  // ── Countdown timer (updates every second) ─────────────────────────────────
+  function tick() {
+    if (monitorDone) return;
+    const elapsed = (Date.now() - START_TIME) / 1000;
+    const remaining = Math.max(0, TOTAL_SECS - elapsed);
+    const pct = Math.min(elapsed / TOTAL_SECS, 1);
+
+    // Ring fill
+    ringFill.style.strokeDashoffset = CIRC * (1 - pct);
+    const hue = Math.round(120 * (1 - pct)); // green → orange → red
+    ringFill.style.stroke = pct > 0.8 ? '#10b981' : pct > 0.5 ? '#06b6d4' : '#4f46e5';
+    if (pct >= 1) ringFill.style.stroke = '#10b981';
+
+    // Time display
+    const mins = Math.floor(remaining / 60);
+    const secs = Math.floor(remaining % 60);
+    document.getElementById('ring-time').textContent = `${mins}:${secs.toString().padStart(2,'0')}`;
+    document.getElementById('progress-text').textContent =
+      `${Math.round(elapsed/60)} of ${MONITOR_MIN} minutes elapsed`;
+  }
+  setInterval(tick, 1000);
+  tick();
+
+  // ── GPS Ping ──────────────────────────────────────────────────────────────
+  async function sendPing(lat, lng, gps_available) {
+    try {
+      const res = await fetch('/api/attendance/ping', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ student_id: STUDENT_ID, session_id: SESSION_ID, lat, lng, gps_available })
+      });
+      const data = await res.json();
+      pingCount++;
+      document.getElementById('ping-counter').textContent = pingCount + ' pings';
+      handlePingResponse(data, lat, lng);
+    } catch(e) {
+      addLog('warn', `⚠️ Server unreachable: ${e.message}`);
+    }
+  }
+
+  function handlePingResponse(data, lat, lng) {
+    const status = data.status;
+
+    if (status === 'confirmed') {
+      monitorDone = true;
+      document.getElementById('ring-time').textContent = '✓';
+      ringFill.style.stroke = '#10b981';
+      addLog('ok', `✅ CONFIRMED PRESENT — monitoring complete!`);
+      showConfirmed(data.message);
+      return;
+    }
+
+    if (status === 'absent_left') {
+      monitorDone = true;
+      addLog('bad', `❌ ABSENT: Left classroom (${data.distance}m from class)`);
+      showAbsent(`You left the classroom zone (${data.distance}m away, limit is ${sessionRadius}m). Your attendance has been revoked.`);
+      return;
+    }
+
+    if (status === 'absent_gps_off') {
+      monitorDone = true;
+      addLog('bad', `❌ ABSENT: GPS was disabled`);
+      showAbsent('You turned off your GPS location. Your attendance has been revoked.');
+      return;
+    }
+
+    if (status === 'warning_gps') {
+      showWarning('📡 GPS Signal Lost', `Warning ${data.violations}/2 — Re-enable location now or you will be marked absent.`);
+      addLog('warn', `⚠️ GPS unavailable (warning ${data.violations}/2)`);
+      setGpsDot('warn', 'GPS signal lost!', 'Re-enable location immediately');
+      return;
+    }
+
+    if (status === 'monitoring') {
+      hideWarning();
+      const dist = data.distance;
+      addLog('ok', `✅ In zone — ${dist}m from class — ${data.remaining_min}min remaining`);
+      setGpsDot('ok', `✅ Inside zone — ${dist}m from class`, `${data.remaining_min} minutes remaining`);
+      if (lat && lng) { lastLat = lat; lastLng = lng; drawMap(); }
+    }
+  }
+
+  // ── Get GPS & ping ────────────────────────────────────────────────────────
+  function checkAndPing() {
+    if (monitorDone) return;
+    if (!navigator.geolocation) {
+      sendPing(null, null, false);
+      setGpsDot('bad', 'Geolocation not supported', 'Cannot verify location');
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        lastLat = pos.coords.latitude;
+        lastLng = pos.coords.longitude;
+        setGpsDot('ok', 'Getting location...', 'Sending ping to server...');
+        sendPing(lastLat, lastLng, true);
+        drawMap();
+      },
+      err => {
+        setGpsDot('bad', 'GPS unavailable — ' + err.message, 'Re-enable location NOW!');
+        showWarning('📡 Location Disabled!', 'Re-enable location access immediately. 2 failed pings = marked absent.');
+        sendPing(null, null, false);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  }
+
+  // ── Map canvas ────────────────────────────────────────────────────────────
+  function drawMap() {
+    if (!lastLat || !sessionLat) return;
+    const canvas = document.getElementById('map-canvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = canvas.parentElement.clientWidth;
+    canvas.height = 160;
+    const W = canvas.width, H = canvas.height;
+
+    // Convert lat/lng to canvas coords (simple linear)
+    const degPerPx = (sessionRadius * 3) / (Math.min(W,H)/2) / 111000;
+    const cx = W/2, cy = H/2;
+
+    function toXY(lat, lng) {
+      const dx = (lng - sessionLng) / degPerPx;
+      const dy = -(lat - sessionLat) / degPerPx;
+      return [cx + dx, cy + dy];
+    }
+
+    ctx.clearRect(0, 0, W, H);
+
+    // Background
+    ctx.fillStyle = '#1a1a2e';
+    ctx.fillRect(0, 0, W, H);
+
+    // Grid
+    ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+    ctx.lineWidth = 1;
+    for(let x=0;x<W;x+=30){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+    for(let y=0;y<H;y+=30){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+
+    // Geo-fence circle
+    const fenceRadius = (sessionRadius / (degPerPx * 111000));
+    ctx.beginPath();
+    ctx.arc(cx, cy, fenceRadius, 0, Math.PI*2);
+    ctx.fillStyle = 'rgba(79,70,229,0.12)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(79,70,229,0.6)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6,4]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Class marker
+    ctx.beginPath();
+    ctx.arc(cx, cy, 8, 0, Math.PI*2);
+    ctx.fillStyle = '#4f46e5';
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.font = '10px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('🏫', cx, cy+4);
+
+    // Student dot
+    const [sx, sy] = toXY(lastLat, lastLng);
+    const dist = getDistanceSimple(lastLat, lastLng, sessionLat, sessionLng);
+    const inside = dist <= sessionRadius;
+
+    // Trail from log
+    if (pingLog.length > 1) {
+      ctx.beginPath();
+      pingLog.slice(-8).filter(p=>p.lat).forEach((p,i) => {
+        const [px,py] = toXY(p.lat, p.lng);
+        i===0 ? ctx.moveTo(px,py) : ctx.lineTo(px,py);
+      });
+      ctx.strokeStyle = 'rgba(16,185,129,0.4)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+
+    ctx.beginPath();
+    ctx.arc(sx, sy, 10, 0, Math.PI*2);
+    ctx.fillStyle = inside ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)';
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(sx, sy, 6, 0, Math.PI*2);
+    ctx.fillStyle = inside ? '#10b981' : '#ef4444';
+    ctx.fill();
+
+    // Labels
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.font = '11px Inter, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('You', sx, sy-14);
+    ctx.fillText(`${Math.round(dist)}m`, sx, sy+22);
+  }
+
+  function getDistanceSimple(lat1,lng1,lat2,lng2){
+    const R=6371000,dL=(lat2-lat1)*Math.PI/180,dO=(lng2-lng1)*Math.PI/180;
+    const a=Math.sin(dL/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dO/2)**2;
+    return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+  }
+
+  // ── UI helpers ────────────────────────────────────────────────────────────
+  function setGpsDot(state, txt, sub) {
+    document.getElementById('gps-dot').className = 'gps-dot ' + state;
+    document.getElementById('gps-txt').textContent = txt;
+    document.getElementById('gps-sub').textContent = sub;
+  }
+
+  function addLog(type, msg) {
+    const time = new Date().toLocaleTimeString();
+    const log = { type, msg, time, lat: lastLat, lng: lastLng };
+    pingLog.unshift(log);
+    const container = document.getElementById('ping-log');
+    container.innerHTML = pingLog.slice(0,15).map(l =>
+      `<div class="ping-line ${l.type}">[${l.time}] ${l.msg}</div>`
+    ).join('');
+  }
+
+  function showWarning(title, body) {
+    document.getElementById('warn-banner').classList.add('show');
+    document.getElementById('warn-title').textContent = title;
+    document.getElementById('warn-body').textContent = body;
+  }
+  function hideWarning() { document.getElementById('warn-banner').classList.remove('show'); }
+
+  function showConfirmed(msg) {
+    document.getElementById('monitor-view').style.display = 'none';
+    document.getElementById('final-confirmed').style.display = 'block';
+    document.getElementById('confirmed-msg').textContent = msg || `${STUDENT_NAME} was present for the full ${MONITOR_MIN} minute monitoring period.`;
+    window.scrollTo({top:0,behavior:'smooth'});
+  }
+
+  function showAbsent(msg) {
+    document.getElementById('monitor-view').style.display = 'none';
+    document.getElementById('final-absent').style.display = 'block';
+    document.getElementById('absent-msg').textContent = msg;
+    window.scrollTo({top:0,behavior:'smooth'});
+  }
+
+  // ── Visibility change — warn if tab hidden ─────────────────────────────────
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden && !monitorDone) {
+      showWarning('⚠️ Page Hidden', 'Keep this page open and visible. Hiding it may interrupt GPS monitoring.');
+    }
+  });
+
+  // ── Start: immediate ping, then every 60s ─────────────────────────────────
+  addLog('ok', `🚀 Monitoring started for ${STUDENT_NAME}`);
+  addLog('ok', `⏱ Duration: ${MONITOR_MIN} minutes`);
+  checkAndPing();
+  setInterval(checkAndPing, 60000); // every 60 seconds
+  </script>
+</body>
+</html>

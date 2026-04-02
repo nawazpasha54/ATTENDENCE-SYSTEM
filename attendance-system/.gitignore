@@ -1,0 +1,6 @@
+node_modules/
+db/attendance.db
+public/uploads/*.jpg
+public/uploads/*.jpeg
+public/uploads/*.png
+.env
